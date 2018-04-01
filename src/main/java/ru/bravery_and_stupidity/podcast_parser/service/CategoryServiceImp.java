@@ -24,5 +24,5 @@ public class CategoryServiceImp implements CategoryService {
 
     @Transactional
     @Override
-    public  void addList(@NotNull List<Category> categories){ repository.add(categories); }
+    public void addList(@NotNull List<Category> categories){ repository.add(categories); }
 }

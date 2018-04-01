@@ -21,4 +21,8 @@ public class PodcastServiceImp implements PodcastService {
     public List<Podcast> getList(Long categoryId) {
         return repository.query(new SpecificationByCategory(categoryId));
     }
+
+    @Transactional
+    @Override
+    public void addList(List<Podcast> podcasts) { repository.add(podcasts);}
 }

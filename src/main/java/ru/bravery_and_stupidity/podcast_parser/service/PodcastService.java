@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface PodcastService {
     List<Podcast> getList(Long categoryId);
+    void addList(List<Podcast> podcasts);
 }
