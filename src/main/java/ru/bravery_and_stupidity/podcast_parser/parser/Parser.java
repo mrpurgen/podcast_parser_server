@@ -6,6 +6,7 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import ru.bravery_and_stupidity.podcast_parser.Application;
 import ru.bravery_and_stupidity.podcast_parser.model.Category;
 
@@ -15,7 +16,7 @@ import java.util.List;
 
 import ru.bravery_and_stupidity.podcast_parser.service.CategoryService;
 import ru.bravery_and_stupidity.podcast_parser.service.CategoryServiceImp;
-
+@Component
 public class Parser implements Runnable{
     private static final Logger logger = LoggerFactory.getLogger(Parser.class);
     Thread thread;

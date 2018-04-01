@@ -21,7 +21,6 @@ public class Application {
         SpringApplication.run(Application.class, args);
 
         logger.info("podcast parser is running");
-        Parser parser = new Parser();
     }
 
 }
