@@ -22,7 +22,13 @@ final public class Category {
         return id;
     }
 
-    public Category(@NotNull Long id, @NotNull String name, @NotNull String url) {
+    public Category(@NotNull String name, @NotNull String url) {
+        this.id = 0L;
+        this.name = name;
+        this.url = url;
+    }
+
+    public Category(@NotNull long id, @NotNull String name, @NotNull String url) {
         this.id = id;
         this.name = name;
         this.url = url;

@@ -34,6 +34,14 @@ final public class Podcast {
         this.url = url;
     }
 
+    public Podcast(@NotNull Long categoryId, @NotNull String name, @NotNull Date date, @NotNull String url) {
+        this.id = 0L;
+        this.categoryId = categoryId;
+        this.name = name;
+        this.date = date;
+        this.url = url;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
