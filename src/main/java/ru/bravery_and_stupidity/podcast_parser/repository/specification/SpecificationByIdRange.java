@@ -10,13 +10,17 @@ public class SpecificationByIdRange implements SqlSpecification {
     @NotNull
     private long maxId;
 
-    public SpecificationByIdRange(long minId, long maxId) {
+    @NotNull
+    private long categoryId;
+
+    public SpecificationByIdRange(long categoryId, long minId, long maxId) {
         this.minId = minId;
         this.maxId = maxId;
+        this.categoryId = categoryId;
     }
 
     @Override
     public String toSqlQuery() {
-        return String.format("id between %s and %s", minId, maxId);
+        return String.format("categoryId = %s and id between %s and %s", categoryId, minId, maxId);
     }
 }

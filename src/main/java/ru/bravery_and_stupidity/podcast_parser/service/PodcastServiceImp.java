@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.bravery_and_stupidity.podcast_parser.model.Podcast;
 import ru.bravery_and_stupidity.podcast_parser.repository.PodcastRepository;
 import ru.bravery_and_stupidity.podcast_parser.repository.specification.SpecificationByCategory;
+import ru.bravery_and_stupidity.podcast_parser.repository.specification.SpecificationByIdRange;
 import ru.bravery_and_stupidity.podcast_parser.repository.specification.SqlSpecification;
 
 import java.util.List;
@@ -20,6 +21,12 @@ public class PodcastServiceImp implements PodcastService {
     @Override
     public List<Podcast> getList(Long categoryId) {
         return repository.query(new SpecificationByCategory(categoryId));
+    }
+
+    @Transactional
+    @Override
+    public List<Podcast> getListRangeID(Long categoryId, Long minId, Long maxId) {
+        return repository.query(new SpecificationByIdRange(categoryId, minId, maxId));
     }
 
     @Transactional
