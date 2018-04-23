@@ -24,9 +24,9 @@ public class CategoryRepositoryTest {
     @Before
     public void setUp() throws Exception {
         database = new EmbeddedDatabaseBuilder()
-            .addDefaultScripts()
-            .setType(EmbeddedDatabaseType.HSQL)
-            .build();
+                .addScripts("testSchema.sql","testData.sql")
+                .setType(EmbeddedDatabaseType.HSQL)
+                .build();
         JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
         repository = new CategoryRepository(jdbcTemplate);
         createEtalonData();
