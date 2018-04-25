@@ -172,6 +172,7 @@ final public class Parser implements Runnable{
     private void PodcastParserRecords(Category category, String url) throws IOException{
         page = Jsoup.connect(url).timeout(10 * 1000).get();
         Elements modeAudioItems = page.select("div.mod-audio-item");
+        Long categoryId = categoryService.getId(category.getName());
 
         ListIterator<Element> modeAudioItemIterator = modeAudioItems.listIterator(modeAudioItems.size());
         while(modeAudioItemIterator.hasPrevious()){
@@ -185,7 +186,7 @@ final public class Parser implements Runnable{
             logger.info("date: " + date);
             logger.info("url: " + url);
 
-            podcasts.add(new Podcast(0L, category.getId(), title, date, link));
+            podcasts.add(new Podcast(0L, categoryId, title, date, link));
         }
     }
 
@@ -239,13 +240,13 @@ final public class Parser implements Runnable{
     private void ParserInitional(){
         try{
             CategoryParser();
+            categoryService.addList(categories);
         }
         catch(IOException e){
             logger.info("connect error" + e);
         }
 
         PodcastParserAllCategories();
-        categoryService.addList(categories);
         podcastService.addList(podcasts);
 
         logger.info("parser succ");

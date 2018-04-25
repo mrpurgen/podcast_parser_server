@@ -1,5 +1,6 @@
 package ru.bravery_and_stupidity.podcast_parser.repository;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -43,7 +44,10 @@ final public class PodcastRepository implements Repository<Podcast> {
     public void add(Iterable<Podcast> iterable) {
         Assert.notNull(iterable, NOT_NULL_MSG);
         String sql = "INSERT INTO podcast (categoryId ,name, date, url) VALUES(?,?,?,?)";
-        jdbcTemplate.batchUpdate(sql, createBatchPreparedStatement(createList(iterable)));
+        try {
+            jdbcTemplate.batchUpdate(sql, createBatchPreparedStatement(createList(iterable)));
+        }
+        catch (DuplicateKeyException dk){}
     }
 
     private List<Podcast> createList(Iterable<Podcast> iterable) {

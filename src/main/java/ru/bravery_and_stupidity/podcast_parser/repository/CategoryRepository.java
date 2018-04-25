@@ -1,6 +1,7 @@
 package ru.bravery_and_stupidity.podcast_parser.repository;
 
 import org.jetbrains.annotations.NotNull;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -40,7 +41,10 @@ final public class CategoryRepository implements Repository<Category> {
     public void add(@NotNull Iterable<Category> iterable) {
         Assert.notNull(iterable, NOT_NULL_MSG);
         String sql = "INSERT INTO category (name, url) VALUES(?,?)";
-        jdbcTemplate.batchUpdate(sql, createBatchPreparedStatement(createList(iterable)));
+        try {
+            jdbcTemplate.batchUpdate(sql, createBatchPreparedStatement(createList(iterable)));
+        }
+        catch (DuplicateKeyException dk){}
     }
 
     private List<Category> createList(Iterable<Category> iterable) {
@@ -93,5 +97,11 @@ final public class CategoryRepository implements Repository<Category> {
         Assert.notNull(specification, NOT_NULL_MSG);
         String sql = "SELECT * FROM category WHERE " + specification.toSqlQuery();
         return jdbcTemplate.query(sql, rowMapper);
+    }
+
+    public Long getId(String name){
+        String sql = String.format("SELECT * FROM category WHERE name=\"%s\"", name);
+        List<Category> category = jdbcTemplate.query(sql, rowMapper);
+        return category.get(0).getId();
     }
 }

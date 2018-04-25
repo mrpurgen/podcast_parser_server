@@ -16,7 +16,7 @@
 
     <properties>
         <java-version>1.8</java-version>
-        <org.springframework-version>4.1.3.RELEASE</org.springframework-version>
+        <org.springframework-version>4.3.7.RELEASE</org.springframework-version>
         <org.slf4j-version>1.6.1</org.slf4j-version>
         <jetbrains.annotation.version>13.0</jetbrains.annotation.version>
     </properties>

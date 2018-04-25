@@ -25,4 +25,8 @@ public class CategoryServiceImp implements CategoryService {
     @Transactional
     @Override
     public void addList(@NotNull List<Category> categories){ repository.add(categories); }
+
+    @Transactional
+    @Override
+    public Long getId(@NotNull String name){return repository.getId(name); }
 }
