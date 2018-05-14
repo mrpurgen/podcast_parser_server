@@ -9,5 +9,5 @@ CREATE TABLE IF NOT EXISTS podcast(id INT  PRIMARY KEY AUTO_INCREMENT,
                                    date DATE,
                                    url VARCHAR(255),
                                    FOREIGN KEY (categoryId) REFERENCES category(id),
-                                   UNIQUE KEY (url)))
+                                   UNIQUE KEY (url))
                                    ENGINE=InnoDB CHARACTER SET=UTF8;

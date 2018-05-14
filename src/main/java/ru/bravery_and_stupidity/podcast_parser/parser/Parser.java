@@ -1,9 +1,5 @@
 package ru.bravery_and_stupidity.podcast_parser.parser;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,10 +7,7 @@ import org.springframework.stereotype.Component;
 import ru.bravery_and_stupidity.podcast_parser.model.Category;
 
 import java.io.IOException;
-import java.sql.Array;
-import java.sql.Date;
 import java.text.DateFormat;
-import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -29,9 +22,7 @@ final public class Parser implements Runnable{
     private static final Logger logger = LoggerFactory.getLogger(Parser.class);
     Thread thread;
 
-    List<Category> categories;
-    List<Podcast> podcasts;
-    Document page;
+    WrapObject page;
 
     @Autowired
     CategoryService categoryService;
@@ -39,52 +30,38 @@ final public class Parser implements Runnable{
     @Autowired
     PodcastService podcastService;
 
-    public Parser(){
-        categories = new ArrayList<>(100);
-        podcasts = new ArrayList<>(100);
+    private ParserEngine parserEngine;
+
+    public Parser(ParserEngine parserEngine){
+        this.parserEngine = parserEngine;
 
         thread = new Thread(this, "thread_parser");
         thread.start();
     }
 
-    private DateFormatSymbols russianMonth = new DateFormatSymbols(){
-        @Override
-        public String[] getMonths() {
-            return new String[]{
-                    "января",
-                    "февраля",
-                    "марта",
-                    "апреля",
-                    "мая",
-                    "июня",
-                    "июля",
-                    "августа",
-                    "сентября",
-                    "октября",
-                    "ноября",
-                    "декабря"
-            };
-        }
-    };
-
-    private void CategoryParser() throws IOException {
+    private List<Category> categoryParser() throws IOException {
         String START_URL = "http://pravradio.ru/audioarchive";
+        List<Category> categories = new ArrayList<>(100);
 
-        page = Jsoup.connect(START_URL).timeout(10 * 10000).get();
+        page = parserEngine.getPage(START_URL);
 
-        Elements classObject = page.select("div.obj-categories");
+        List classObject = parserEngine.getContentFromPage(page.getObject(), "div", "obj-categories");
+        List liClass = parserEngine.getContentFromElement(classObject, "li", "active");
 
-        categories.add(new Category(0L, classObject.select("li.active").first().ownText(), START_URL));
+        categories.add(new Category(0L, parserEngine.getOwnText(liClass.get(0)), START_URL));
 
-        classObject.select("a[href]").forEach((consumer)->{
-            categories.add(new Category(0L, consumer.attr("title"), consumer.attr("abs:href")));
+        List links = parserEngine.getLinks(classObject);
+        links.forEach((x)->{
+            categories.add(new Category(0L, parserEngine.getAttr(x, "title"), parserEngine.getAttr(x, "abs:href")));
         });
+
+        return categories;
     }
 
-    private void PodcastParserAllCategories(){
-        //categories.forEach((category -> {
+    private void podcastParserAllCategories(List<Category> categories){
+        categories.forEach((category -> {
             try {
-                PodcastParserSimpleCategories(categories.get(1));
+                podcastParserSimpleCategories(category);
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (InterruptedException e) {
@@ -95,19 +72,19 @@ final public class Parser implements Runnable{
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-       // }));
+        }));
     }
 
-    private void PodcastParserSimpleCategories(Category category) throws IOException, InterruptedException {
-        ArrayList<String> yearsList = PodcastParserYears(category);
+    private void podcastParserSimpleCategories(Category category) throws IOException, InterruptedException {
+        ArrayList<String> yearsList = podcastParserYears(category);
 
         ListIterator<String> yearIterator = yearsList.listIterator(yearsList.size());
         while(yearIterator.hasPrevious()){
             try {
-                ArrayList<String> monthsList = PodcastParserMonths(yearIterator.previous());
+                ArrayList<String> monthsList = podcastParserMonths(yearIterator.previous());
                 monthsList.forEach((element)->{
                     try {
-                        PodcastParserRecords(category, element);
+                        podcastService.addList(podcastParserRecords(category, element));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -115,21 +92,28 @@ final public class Parser implements Runnable{
             }
             catch (ParsingSelectException e){
                 yearIterator.next();
-                PodcastParserRecords(category, yearIterator.previous());
+                podcastService.addList(podcastParserRecords(category, yearIterator.previous()));
             }
         }
     }
 
-    private ArrayList<String> PodcastParserYears(Category category) throws InterruptedException, IOException {
+    private ArrayList<String> podcastParserYears(Category category) throws InterruptedException, IOException {
         ArrayList<String> yearListString = new ArrayList<>(20);
 
-        page = Jsoup.connect(category.getUrl()).get();
+        page = parserEngine.getPage(category.getUrl());
 
         /// Получение ссылки на последний год производится отдельно, так как ссылка на него отсутсвует
         /// в первоначальном списке
-        String lastYear = page.select("h4").select("a[href]").last().attr("abs:href");
-        page = Jsoup.connect(lastYear).get();
-        yearListString.add(page.select("h4").select("a[href]").last().attr("abs:href"));
+        List hForClass = parserEngine.getContentFromPage(page.getObject(), "h4");
+        List links = parserEngine.getLinks(hForClass);
+        String lastYear = parserEngine.getAttr(links.get(links.size() - 1), "abs:href");
+
+        page = parserEngine.getPage(lastYear);
+
+        hForClass = parserEngine.getContentFromPage(page.getObject(), "h4");
+        links = parserEngine.getLinks(hForClass);
+
+        yearListString.add(parserEngine.getAttr(links.get(links.size() - 1), "abs:href"));
         yearListString.add(lastYear);
 
         ListIterator<String>yearIterator = yearListString.listIterator(1);
@@ -137,13 +121,15 @@ final public class Parser implements Runnable{
         while(yearIterator.hasNext()){
             String year = yearIterator.next();
 
-            page = Jsoup.connect(year).timeout(10*1000).get();
+            page = parserEngine.getPage(year);
 
-            Elements bufElements = new Elements(page.select("h4").select("a[href]"));
+            hForClass = parserEngine.getContentFromPage(page.getObject(), "h4");
+            links = parserEngine.getLinks(hForClass);
 
-            if(bufElements.size() <= 1){ break; }
+            if(links.size() <= 1){ break; }
 
-            yearIterator.add(bufElements.first().attr("abs:href"));
+            yearIterator.add(parserEngine.getAttr(links.get(0), "abs:href"));
+
             yearIterator.previous();
 
             TimeUnit.SECONDS.sleep(1);
@@ -151,36 +137,47 @@ final public class Parser implements Runnable{
             return yearListString;
     }
 
-    private ArrayList<String> PodcastParserMonths(String year) throws IOException, ParsingSelectException {
+    private ArrayList<String> podcastParserMonths(String year) throws IOException, ParsingSelectException {
         ArrayList<String> monthsList = new ArrayList<>(12);
 
-        page = Jsoup.connect(year).timeout(10 * 1000).get();
-        page.select("dfn").select("a[href]").forEach((element -> {
-            monthsList.add(element.attr("abs:href"));
-        }));
+        page = parserEngine.getPage(year);
+
+        List dfnTags = parserEngine.getContentFromPage(page.getObject(), "dfn");
+        List links = parserEngine.getLinks(dfnTags);
+
+        links.forEach((x)->{
+            monthsList.add(parserEngine.getAttr(x, "abs:href"));
+        });
 
         if (monthsList.isEmpty()){
             throw new ParsingSelectException("список месяцув пуст");
         }
 
-        page = Jsoup.connect(monthsList.get(0)).get();
-        monthsList.add(page.select("dfn").select("a[href]").last().attr("abs:href"));
+        page = parserEngine.getPage(monthsList.get(0));
+
+        dfnTags = parserEngine.getContentFromPage(page.getObject(), "dfn");
+        links = parserEngine.getLinks(dfnTags);
+
+        monthsList.add(parserEngine.getAttr(links.get(links.size() - 1), "abs:href"));
 
         return monthsList;
     }
 
-    private void PodcastParserRecords(Category category, String url) throws IOException{
-        page = Jsoup.connect(url).timeout(10 * 1000).get();
-        Elements modeAudioItems = page.select("div.mod-audio-item");
+    private List<Podcast> podcastParserRecords(Category category, String url) throws IOException{
+        List<Podcast> podcasts = new ArrayList<>(300);
+
+        page = parserEngine.getPage(url);
+        List modeAudioItems = parserEngine.getContentFromPage(page.getObject(), "div", "mod-audio-item");
+
         Long categoryId = categoryService.getId(category.getName());
 
-        ListIterator<Element> modeAudioItemIterator = modeAudioItems.listIterator(modeAudioItems.size());
+        ListIterator modeAudioItemIterator = modeAudioItems.listIterator(modeAudioItems.size());
         while(modeAudioItemIterator.hasPrevious()){
-            Element modeAudioItem = modeAudioItemIterator.previous();
+            WrapObject modeAudioItem = new WrapObject(modeAudioItemIterator.previous());
 
-            String title = PodcastParserTitle(modeAudioItem);
-            String link = PodcastParserURL(modeAudioItem);
-            Date date = PodcastParserRecordDate(modeAudioItem);
+            String title = podcastParserTitle(modeAudioItem);
+            String link = podcastParserURL(modeAudioItem);
+            java.sql.Date date = podcastParserRecordDate(modeAudioItem);
 
             logger.info("title: " + title);
             logger.info("date: " + date);
@@ -188,85 +185,78 @@ final public class Parser implements Runnable{
 
             podcasts.add(new Podcast(0L, categoryId, title, date, link));
         }
+        return podcasts;
     }
 
-    private String PodcastParserTitle(Element mode_audio_item){
-        return mode_audio_item.select("h2.entry-title").first().ownText();
+    private String podcastParserTitle(WrapObject mode_audio_item){
+        List titles = parserEngine.getContentFromElement(mode_audio_item.getObject(), "h2.entry-title");
+        return parserEngine.getOwnText(titles.get(0));
     }
 
-    private String PodcastParserURL(Element mode_audio_item){
-        return mode_audio_item.select("div.mod-audio-links").select("a[href]").first().attr("abs:href");
+    private String podcastParserURL(WrapObject mode_audio_item){
+        List linksClass = parserEngine.getContentFromElement(mode_audio_item.getObject(), "div", "mod-audio-links");
+        List links = parserEngine.getLinks(linksClass);
+
+        return parserEngine.getAttr(links.get(0), "abs:href");
     }
 
-    private void PodcastParserLastRecords(){
-        categories.forEach(category -> {
-            try {
-                PodcastParserRecords(category, category.getUrl());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-    }
+    private java.sql.Date podcastParserRecordDate(WrapObject mod_audio_item) {
+        java.sql.Date dateSql = new java.sql.Date(0L);
 
-
-    private Date PodcastParserRecordDate(Element mod_audio_item) {
-        java.sql.Date dateSql = new Date(0L);
-
-        DateFormat dateFormat = new SimpleDateFormat("d MMMM yyyy", russianMonth);
+        DateFormat dateFormat = new SimpleDateFormat("d MMMM yyyy", new RussianDateFormatSymbols());
         try {
-            String date = mod_audio_item.children().first().text();
-            String newDate = String.format("%s %s %s", getDay(date), getMonth(date), getYear(date));
+            List childrens = parserEngine.getChildren(mod_audio_item.getObject());
+            String date = parserEngine.getText(childrens.get(0));
+
+            String newDate = new NormalizeDate().getNormalizeDate(date);
             java.util.Date dateUtil = dateFormat.parse(newDate);
             dateSql.setTime(dateUtil.getTime());
         }
         catch (ParseException e){
             e.printStackTrace();
         }
-         return dateSql;
+        return dateSql;
     }
 
-    private String getDay(String date) {
-        return date.split("[\\u00A0\\s]+")[0];
+    private void podcastParserLastRecords(List<Category> categories){
+        categories.forEach(category -> {
+            try {
+                podcastParserRecords(category, category.getUrl());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
-    private String getMonth(String date) {
-        return date.split("[\\u00A0\\s]+")[1];
-    }
-
-    private String getYear(String date) {
-        return date.split("[\\u00A0\\s]+")[2];
-    }
-
-    private void ParserInitional(){
+    private void parserInitional(){
+        List<Category> categories;
         try{
-            CategoryParser();
+            categories = categoryParser();
             categoryService.addList(categories);
+
+            podcastParserAllCategories(categories);
         }
         catch(IOException e){
             logger.info("connect error" + e);
         }
-
-        PodcastParserAllCategories();
-        podcastService.addList(podcasts);
-
         logger.info("parser succ");
     }
 
-    private void ParserLastRecords() {
+    private void parserLastRecords() {
+        List<Category> categories;
         while (true) {
             try {
-                CategoryParser();
+                categories = categoryParser();
+                podcastParserLastRecords(categories);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
-            PodcastParserLastRecords();
         }
     }
 
     @Override
     public void run() {
-        ParserInitional();
-        //ParserLastRecords();
+        parserInitional();
+        parserLastRecords();
     }
 }
